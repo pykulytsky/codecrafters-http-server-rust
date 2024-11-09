@@ -1,18 +1,19 @@
-#[allow(unused_imports)]
-use std::net::TcpListener;
+#![allow(clippy::never_loop)]
+use tokio::io::AsyncWriteExt;
+use tokio::net::TcpListener;
+mod connection;
+use connection::Connection;
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Logs from your program will appear here!");
-    let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
+    let listener = TcpListener::bind("127.0.0.1:4221").await?;
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(_stream) => {
-                println!("accepted new connection");
-            }
-            Err(e) => {
-                println!("error: {}", e);
-            }
-        }
+    loop {
+        let mut connection = Connection::new(listener.accept().await?);
+        let n = connection.write(b"HTTP/1.1 200 OK\r\n\r\n").await?;
+        println!("Written {n} bytes to {}", connection.addr);
+        break;
     }
+    Ok(())
 }
