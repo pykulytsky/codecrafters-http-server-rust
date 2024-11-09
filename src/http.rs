@@ -101,6 +101,7 @@ impl<'req> HttpRequest<'req> {
 pub struct HttpResponse {
     pub status_code: HttpStatusCode,
     pub body: Option<Vec<u8>>,
+    pub headers: Option<BTreeMap<String, String>>,
 }
 
 impl HttpResponse {
@@ -108,6 +109,7 @@ impl HttpResponse {
         Self {
             status_code,
             body: None,
+            headers: None,
         }
     }
 
@@ -115,6 +117,7 @@ impl HttpResponse {
         Self {
             status_code: HttpStatusCode::Ok,
             body: None,
+            headers: None,
         }
     }
 
@@ -122,11 +125,23 @@ impl HttpResponse {
         Self {
             status_code: HttpStatusCode::NotFound,
             body: None,
+            headers: None,
         }
     }
 
     pub fn with_body(mut self, body: Vec<u8>) -> Self {
         self.body = Some(body);
+        self
+    }
+
+    pub fn set_header(mut self, key: &str, value: &str) -> Self {
+        if let Some(headers) = self.headers.as_mut() {
+            headers.insert(key.to_string(), value.to_string());
+        } else {
+            let mut headers = BTreeMap::new();
+            headers.insert(key.to_string(), value.to_string());
+            self.headers = Some(headers);
+        }
         self
     }
 
@@ -136,11 +151,21 @@ impl HttpResponse {
         buf.extend(b"HTTP/1.1 ");
         buf.extend(self.status_code.as_bytes());
         buf.extend(b"\r\n");
-        buf.extend(b"Content-Type: text/plain\r\n");
+        // buf.extend(b"Content-Type: text/plain\r\n");
         buf.extend(b"Content-Length: ");
         let content_length = self.body.as_ref().map(|body| body.len()).unwrap_or(0);
         write!(buf, "{}", content_length).unwrap();
         buf.extend(b"\r\n");
+        if let Some(headers) = self.headers {
+            for (key, value) in headers {
+                buf.extend(key.as_bytes());
+                buf.extend(b": ");
+                buf.extend(value.as_bytes());
+                buf.extend(b"\r\n")
+            }
+        } else {
+            buf.extend(b"Content-Type: text/plain\r\n");
+        }
         buf.extend(b"\r\n");
         if let Some(body) = self.body {
             buf.extend(body);

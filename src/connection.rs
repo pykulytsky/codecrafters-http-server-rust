@@ -1,12 +1,15 @@
 #![allow(clippy::never_loop)]
 use std::{
+    env::args,
     net::SocketAddr,
+    path::PathBuf,
     pin::Pin,
+    str::FromStr,
     task::{Context, Poll},
 };
-use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::io::{self, AsyncRead};
+use tokio::{fs::File, io::AsyncReadExt};
 
 use tokio::io::AsyncWrite;
 
@@ -25,6 +28,7 @@ impl Connection {
     }
 
     pub async fn handle(mut self) -> Result<(), tokio::io::Error> {
+        println!("Accepted new connection {}", self.addr);
         loop {
             let mut buf = Vec::with_capacity(1024);
             let n = self.read_buf(&mut buf).await?;
@@ -40,6 +44,28 @@ impl Connection {
                         .as_bytes()
                         .to_vec(),
                 ),
+                url if url.starts_with("/files/") =>
+                    // && request.headers.get("Content-Type").is_some()
+                    // && *request.headers.get("Content-Type").unwrap()
+                    //     == "application/octet-stream" =>
+                {
+                    let _ = args().nth(1).expect("To have passed --directory flag");
+                    let path = args().nth(2).expect("To have passed directory");
+                    let mut files = std::fs::read_dir(path.clone()).unwrap();
+                    let file = files
+                        .find(|entry| {
+                            entry.as_ref().unwrap().path()
+                                == PathBuf::from_str(&path).unwrap().join(&url[7..])
+                        });
+                        if let Some(Ok(file)) = file {
+                            let mut file = File::open(file.path()).await.unwrap();
+                            let mut buf = vec![];
+                            file.read_buf(&mut buf).await.unwrap();
+                            HttpResponse::new_ok().with_body(buf).set_header("Content-Type", "application/octet-stream")
+                        } else {
+                            HttpResponse::new_not_found()
+                        }
+                }
                 url if url.starts_with("/echo/") => {
                     HttpResponse::new_ok().with_body(url[6..].as_bytes().to_vec())
                 }
