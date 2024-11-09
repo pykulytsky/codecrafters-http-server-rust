@@ -31,6 +31,15 @@ impl Connection {
             let request = HttpRequest::decode(&buf[..n]).unwrap();
             let response = match request.url {
                 "/" => HttpResponse::new_ok(),
+                "/user-agent" => HttpResponse::new_ok().with_body(
+                    request
+                        .headers
+                        .get("User-Agent")
+                        .unwrap()
+                        .to_string()
+                        .as_bytes()
+                        .to_vec(),
+                ),
                 url if url.starts_with("/echo/") => {
                     HttpResponse::new_ok().with_body(url[6..].as_bytes().to_vec())
                 }

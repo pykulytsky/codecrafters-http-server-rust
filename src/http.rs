@@ -1,5 +1,5 @@
-use std::io::BufRead;
 use std::io::Write;
+use std::{collections::BTreeMap, io::BufRead};
 
 use crate::error::HttpError;
 
@@ -7,6 +7,7 @@ use crate::error::HttpError;
 pub struct HttpRequest<'req> {
     pub method: HttpMethod,
     pub url: &'req str,
+    pub headers: BTreeMap<&'req str, &'req str>,
     // headers: &'req [u8],
     pub body: Option<&'req [u8]>,
 }
@@ -55,10 +56,26 @@ impl<'req> HttpRequest<'req> {
         let url = std::str::from_utf8(first_line_elements.next().ok_or(HttpError::ProtocolError)?)
             .map_err(|_| HttpError::UrlError)?;
         // TODO: the rest of the line
-        let mut lines = lines.skip_while(|line| line != b""); // TODO: headers
+        let mut headers = BTreeMap::new();
+        for line in lines.by_ref() {
+            if line == b"\r\n" || line == b"" {
+                break;
+            }
+            let header_line = std::str::from_utf8(line).map_err(|_| HttpError::HeaderError)?;
+            let mut parts = header_line.split(": ");
+            headers.insert(
+                parts.next().ok_or(HttpError::HeaderError)?,
+                parts.next().ok_or(HttpError::HeaderError)?,
+            );
+        }
         let body = lines.next();
 
-        Ok(Self { method, url, body })
+        Ok(Self {
+            method,
+            url,
+            body,
+            headers,
+        })
     }
 
     pub fn encode(self) -> Vec<u8> {

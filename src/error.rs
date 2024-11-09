@@ -8,4 +8,6 @@ pub enum HttpError {
     MethodError,
     #[error("")]
     UrlError,
+    #[error("")]
+    HeaderError,
 }
