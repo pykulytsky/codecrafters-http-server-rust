@@ -30,7 +30,10 @@ impl Connection {
             let n = self.read_buf(&mut buf).await?;
             let request = HttpRequest::decode(&buf[..n]).unwrap();
             let response = match request.url {
-                b"/" => HttpResponse::new_ok(),
+                "/" => HttpResponse::new_ok(),
+                url if url.starts_with("/echo/") => {
+                    HttpResponse::new_ok().with_body(url[6..].as_bytes().to_vec())
+                }
                 _ => HttpResponse::new_not_found(),
             };
             self.write_all(&response.encode()).await?;

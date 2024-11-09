@@ -6,4 +6,6 @@ pub enum HttpError {
     ProtocolError,
     #[error("")]
     MethodError,
+    #[error("")]
+    UrlError,
 }
