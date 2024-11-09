@@ -12,7 +12,7 @@ pub struct HttpRequest<'req> {
     pub body: Option<&'req [u8]>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum HttpMethod {
     Get,
     Post,
@@ -121,6 +121,14 @@ impl HttpResponse {
         }
     }
 
+    pub fn new_created() -> Self {
+        Self {
+            status_code: HttpStatusCode::Created,
+            body: None,
+            headers: None,
+        }
+    }
+
     pub fn new_not_found() -> Self {
         Self {
             status_code: HttpStatusCode::NotFound,
@@ -179,6 +187,7 @@ impl HttpResponse {
 pub enum HttpStatusCode {
     Ok,
     NotFound,
+    Created,
 }
 
 impl HttpStatusCode {
@@ -186,6 +195,7 @@ impl HttpStatusCode {
         match self {
             HttpStatusCode::Ok => b"200 OK",
             HttpStatusCode::NotFound => b"404 Not Found",
+            HttpStatusCode::Created => b"201 Created",
         }
     }
 }
