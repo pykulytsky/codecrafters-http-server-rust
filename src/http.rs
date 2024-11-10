@@ -168,10 +168,6 @@ impl HttpResponse {
         buf.extend(self.status_code.as_bytes());
         buf.extend(b"\r\n");
         // buf.extend(b"Content-Type: text/plain\r\n");
-        buf.extend(b"Content-Length: ");
-        let content_length = self.body.as_ref().map(|body| body.len()).unwrap_or(0);
-        write!(buf, "{}", content_length).unwrap();
-        buf.extend(b"\r\n");
         if let Some(headers) = self.headers {
             for (key, value) in headers {
                 buf.extend(key.as_bytes());
@@ -185,16 +181,27 @@ impl HttpResponse {
         if self.gzip {
             buf.extend(b"Content-Encoding: gzip\r\n");
         }
-        buf.extend(b"\r\n");
-        if let Some(body) = self.body {
+        if let Some(ref body) = self.body {
             if self.gzip {
                 let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-                encoder.write_all(&body).unwrap();
+                encoder.write_all(body).unwrap();
                 let compressed_bytes = encoder.finish().unwrap();
+
+                buf.extend(b"Content-Length: ");
+                write!(buf, "{}", compressed_bytes.len()).unwrap();
+                buf.extend(b"\r\n");
+                buf.extend(b"\r\n");
                 buf.extend(compressed_bytes);
             } else {
+                buf.extend(b"Content-Length: ");
+                let content_length = self.body.as_ref().map(|body| body.len()).unwrap_or(0);
+                write!(buf, "{}", content_length).unwrap();
+                buf.extend(b"\r\n");
+                buf.extend(b"\r\n");
                 buf.extend(body);
             }
+        } else {
+            buf.extend(b"\r\n");
         }
 
         buf
