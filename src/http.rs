@@ -1,5 +1,8 @@
+use flate2::write::GzEncoder;
+use flate2::Compression;
 use std::io::Write;
 use std::{collections::BTreeMap, io::BufRead};
+use tokio::io::AsyncWriteExt;
 
 use crate::error::HttpError;
 
@@ -102,6 +105,7 @@ pub struct HttpResponse {
     pub status_code: HttpStatusCode,
     pub body: Option<Vec<u8>>,
     pub headers: Option<BTreeMap<String, String>>,
+    pub gzip: bool,
 }
 
 impl HttpResponse {
@@ -110,6 +114,7 @@ impl HttpResponse {
             status_code,
             body: None,
             headers: None,
+            gzip: false,
         }
     }
 
@@ -118,6 +123,7 @@ impl HttpResponse {
             status_code: HttpStatusCode::Ok,
             body: None,
             headers: None,
+            gzip: false,
         }
     }
 
@@ -126,6 +132,7 @@ impl HttpResponse {
             status_code: HttpStatusCode::Created,
             body: None,
             headers: None,
+            gzip: false,
         }
     }
 
@@ -134,6 +141,7 @@ impl HttpResponse {
             status_code: HttpStatusCode::NotFound,
             body: None,
             headers: None,
+            gzip: false,
         }
     }
 
@@ -174,9 +182,19 @@ impl HttpResponse {
         } else {
             buf.extend(b"Content-Type: text/plain\r\n");
         }
+        if self.gzip {
+            buf.extend(b"Content-Encoding: gzip\r\n");
+        }
         buf.extend(b"\r\n");
         if let Some(body) = self.body {
-            buf.extend(body);
+            if self.gzip {
+                let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+                encoder.write_all(&body).unwrap();
+                let compressed_bytes = encoder.finish().unwrap();
+                buf.extend(compressed_bytes);
+            } else {
+                buf.extend(body);
+            }
         }
 
         buf

@@ -33,7 +33,7 @@ impl Connection {
             let mut buf = Vec::with_capacity(1024);
             let n = self.read_buf(&mut buf).await?;
             let request = HttpRequest::decode(&buf[..n]).unwrap();
-            let response = match request.url {
+            let mut response = match request.url {
                 "/" => HttpResponse::new_ok(),
                 "/user-agent" => HttpResponse::new_ok().with_body(
                     request
@@ -78,6 +78,12 @@ impl Connection {
                 }
                 _ => HttpResponse::new_not_found(),
             };
+            if let Some(encoding) = request.headers.get("Accept-Encoding") {
+                // TODO handle format
+                if encoding.contains("gzip") {
+                    response.gzip = true;
+                }
+            }
             self.write_all(&response.encode()).await?;
             break;
         }
